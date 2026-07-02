@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="IRVE Terrain">
+<meta name="theme-color" content="#1E429F">
+<title>IRVE Terrain</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --blue:#1E429F;--blue2:#1A56DB;--blt:#EBF5FF;
+  --green:#0E9F6E;--glt:#ECFDF5;
+  --org:#FF5A1F;--red:#E02424;
+  --bg:#F0F4F8;--card:#fff;--bd:#CBD5E0;
+  --txt:#111827;--dim:#6B7280;--mut:#9CA3AF;
+  --r:12px;--safe-top:env(safe-area-inset-top,0px);
+}
+html,body{height:100%;background:var(--bg);font-family:-apple-system,system-ui,sans-serif;font-size:15px;color:var(--txt);overflow:hidden}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--blue);padding:calc(var(--safe-top) + 10px) 16px 10px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.topbar-title{color:#fff;font-size:17px;font-weight:700;flex:1}
+.topbar-sub{color:rgba(255,255,255,.7);font-size:11px;margin-top:1px}
+.sync-btn{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px}
+.sync-btn:active{background:rgba(255,255,255,.35)}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#FCD34D}
+.sync-dot.ok{background:#34D399}
+.sync-dot.sync{background:#60A5FA;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── SCREENS ── */
+.screen{display:none;flex-direction:column;height:100vh;overflow:hidden}
+.screen.active{display:flex}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+
+/* ── SITE LIST ── */
+.site-card{background:var(--card);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;
+  display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);cursor:pointer;
+  border:1.5px solid transparent;transition:.1s}
+.site-card:active{border-color:var(--blue2);background:var(--blt)}
+.site-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.site-info{flex:1;min-width:0}
+.site-ref{font-size:11px;color:var(--mut);font-weight:600;font-family:monospace}
+.site-name{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.site-fil{font-size:12px;color:var(--blue);font-weight:500;margin-top:1px}
+.site-pdc{font-size:18px;font-weight:800;color:var(--blue);flex-shrink:0}
+.site-check{font-size:11px;color:var(--dim);margin-top:3px}
+
+/* ── SEARCH ── */
+.search-wrap{padding:10px 12px;background:var(--blue);padding-top:0}
+.search-inp{width:100%;background:rgba(255,255,255,.15);border:none;border-radius:10px;
+  padding:10px 14px;color:#fff;font-size:15px;outline:none}
+.search-inp::placeholder{color:rgba(255,255,255,.5)}
+
+/* ── FICHE SCREEN ── */
+.fiche-topbar{background:var(--blue);padding:calc(var(--safe-top) + 10px) 16px 12px;flex-shrink:0}
+.back-btn{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;
+  padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px}
+.back-btn:active{background:rgba(255,255,255,.35)}
+.fiche-site-name{color:#fff;font-size:18px;font-weight:800}
+.fiche-site-sub{color:rgba(255,255,255,.75);font-size:12px;margin-top:2px}
+.fiche-statut{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;margin-top:5px}
+
+/* ── SECTIONS ── */
+.section-title{font-size:12px;font-weight:700;color:var(--dim);text-transform:uppercase;
+  letter-spacing:.06em;padding:16px 4px 8px;border-bottom:1px solid var(--bd);margin-bottom:10px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.info-item .lbl{font-size:11px;color:var(--mut);font-weight:600;margin-bottom:2px}
+.info-item .val{font-size:13px;font-weight:600;color:var(--txt)}
+.info-item.full{grid-column:1/-1}
+
+/* ── CHAMPS SAISIE ── */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:600;color:var(--dim);margin-bottom:6px}
+.field input,.field select,.field textarea{
+  width:100%;background:var(--card);border:1.5px solid var(--bd);border-radius:10px;
+  padding:12px 14px;font-size:15px;font-family:inherit;outline:none;-webkit-appearance:none;color:var(--txt)}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue2)}
+.field textarea{min-height:90px;resize:none}
+.field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+
+/* ── CHECKLIST ── */
+.check-item{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-bottom:1px solid var(--bg);cursor:pointer}
+.check-item:active{opacity:.7}
+.check-box{width:24px;height:24px;border:2px solid var(--bd);border-radius:6px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:15px;margin-top:1px;transition:.15s}
+.check-box.done{background:var(--green);border-color:var(--green);color:#fff}
+.check-label{font-size:14px;line-height:1.4;flex:1;padding-top:2px}
+.check-item.done-item .check-label{text-decoration:line-through;color:var(--mut)}
+.progress-bar{height:6px;background:var(--bg);border-radius:3px;margin:8px 0 16px}
+.progress-fill{height:6px;background:var(--green);border-radius:3px;transition:.3s}
+
+/* ── PHOTOS ── */
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.photo-thumb{aspect-ratio:1;border-radius:10px;object-fit:cover;width:100%;cursor:pointer}
+.photo-add{aspect-ratio:1;border-radius:10px;border:2px dashed var(--bd);background:var(--card);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px}
+.photo-add:active{background:var(--blt);border-color:var(--blue2)}
+.photo-add-icon{font-size:28px}
+.photo-add-lbl{font-size:11px;color:var(--mut);font-weight:600}
+.photo-wrap{position:relative}
+.photo-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);color:#fff;
+  border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center}
+
+/* ── BOUTONS ── */
+.btn-primary{width:100%;padding:16px;background:var(--blue2);color:#fff;border:none;
+  border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;
+  display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-primary:active{background:var(--blue)}
+.btn-primary:disabled{background:var(--mut);cursor:default}
+.btn-secondary{width:100%;padding:14px;background:var(--card);color:var(--blue2);border:1.5px solid var(--blue2);
+  border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px}
+.btn-secondary:active{background:var(--blt)}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);
+  background:#111;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;
+  z-index:999;display:none;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+
+/* ── FILTRE TABS ── */
+.filter-tabs{display:flex;gap:6px;padding:10px 12px;background:var(--blue);overflow-x:auto;padding-top:4px}
+.filter-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;
+  white-space:nowrap;border:none;background:rgba(255,255,255,.15);color:rgba(255,255,255,.8)}
+.filter-tab.active{background:#fff;color:var(--blue)}
+
+/* ── SYNTHESE BADGE ── */
+.synth-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.synth-item{background:var(--card);border-radius:10px;padding:10px;text-align:center;border:1.5px solid var(--bd)}
+.synth-item .s-lbl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+.synth-item select{width:100%;border:none;background:transparent;font-size:12px;font-weight:700;
+  text-align:center;outline:none;color:var(--txt);-webkit-appearance:none;cursor:pointer}
+</style>
+</head>
+<body>
+
+<!-- ── ÉCRAN LISTE ── -->
+<div class="screen active" id="screen-list">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">⚡ IRVE Terrain</div>
+      <div class="topbar-sub">Cordon Group</div>
+    </div>
+    <button class="sync-btn" onclick="syncAll()" id="sync-btn">
+      <span class="sync-dot" id="sync-dot"></span>
+      Sync
+    </button>
+  </div>
+  <div class="search-wrap">
+    <input class="search-inp" id="search" placeholder="🔍 Rechercher un site…" oninput="renderList()">
+  </div>
+  <div class="filter-tabs" id="filter-tabs">
+    <button class="filter-tab active" data-f="tous" onclick="setFilter('tous',this)">Tous</button>
+    <button class="filter-tab" data-f="prio" onclick="setFilter('prio',this)">⭐ Prioritaires</button>
+    <button class="filter-tab" data-f="planifier" onclick="setFilter('planifier',this)">À planifier</button>
+    <button class="filter-tab" data-f="visite" onclick="setFilter('visite',this)">Visités</button>
+  </div>
+  <div class="scroll" id="site-list"></div>
+</div>
+
+<!-- ── ÉCRAN FICHE ── -->
+<div class="screen" id="screen-fiche">
+  <div class="fiche-topbar">
+    <button class="back-btn" onclick="goBack()">← Retour</button>
+    <div class="fiche-site-name" id="f-name">—</div>
+    <div class="fiche-site-sub" id="f-sub">—</div>
+    <span class="fiche-statut" id="f-statut">—</span>
+  </div>
+  <div class="scroll" id="fiche-scroll">
+
+    <!-- Infos site -->
+    <div class="section-title">Informations site</div>
+    <div class="info-grid" id="f-infos"></div>
+
+    <!-- Date et interlocuteur -->
+    <div class="section-title">Visite terrain</div>
+    <div class="field">
+      <label>Date de visite</label>
+      <input type="date" id="f-date-visite">
+    </div>
+    <div class="field">
+      <label>Interlocuteur sur site</label>
+      <input type="text" id="f-interlo" placeholder="Nom + téléphone">
+    </div>
+
+    <!-- Infos techniques -->
+    <div class="section-title">Relevés techniques</div>
+    <div class="field">
+      <label>Puissance souscrite (kVA)</label>
+      <input type="number" id="f-pw-sous" inputmode="numeric" placeholder="ex: 48">
+    </div>
+    <div class="field">
+      <label>Puissance disponible estimée (kVA)</label>
+      <input type="number" id="f-pw-dispo" inputmode="numeric" placeholder="ex: 20">
+    </div>
+    <div class="field">
+      <label>Régime électrique</label>
+      <select id="f-regime">
+        <option value="">— À déterminer —</option>
+        <option>TN</option><option>IT</option><option>TT</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Distance TGBT → parking (m)</label>
+      <input type="number" id="f-dist" inputmode="numeric" placeholder="ex: 35">
+    </div>
+    <div class="field">
+      <label>Type de sol (cheminement câble)</label>
+      <select id="f-sol">
+        <option value="">— À déterminer —</option>
+        <option>Enrobé</option><option>Béton</option><option>Terre</option>
+        <option>Parterre aménagé</option><option>Mixte</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Puissance cible souhaitée</label>
+      <select id="f-pw-cible">
+        <option value="">— Choisir —</option>
+        <option>7,4 kW AC</option><option>11 kW AC</option><option>22 kW AC</option>
+        <option>50 kW DC</option><option>100-150 kW DC</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Type alimentation</label>
+      <select id="f-alim">
+        <option value="">— Choisir —</option>
+        <option>Monophasé</option><option>Triphasé</option>
+      </select>
+    </div>
+
+    <!-- Checklist -->
+    <div class="section-title">Checklist terrain</div>
+    <div class="progress-bar"><div class="progress-fill" id="check-progress" style="width:0%"></div></div>
+    <div id="checklist-wrap"></div>
+
+    <!-- Photos -->
+    <div class="section-title">Photos terrain</div>
+    <div class="photo-grid" id="photo-grid">
+      <div class="photo-add" onclick="document.getElementById('photo-input').click()">
+        <div class="photo-add-icon">📷</div>
+        <div class="photo-add-lbl">Ajouter</div>
+      </div>
+    </div>
+    <input type="file" id="photo-input" accept="image/*" capture="environment" multiple style="display:none" onchange="addPhotos(this.files)">
+
+    <!-- Synthèse -->
+    <div class="section-title">Synthèse</div>
+    <div class="synth-grid">
+      <div class="synth-item">
+        <div class="s-lbl">Faisable</div>
+        <select id="f-faisable">
+          <option value="">?</option><option>Oui</option>
+          <option>Non</option><option>Sous conditions</option>
+        </select>
+      </div>
+      <div class="synth-item">
+        <div class="s-lbl">Contraintes</div>
+        <select id="f-contraintes">
+          <option value="">?</option><option>Faibles</option>
+          <option>Moyennes</option><option>Élevées</option>
+        </select>
+      </div>
+      <div class="synth-item">
+        <div class="s-lbl">Impact coût</div>
+        <select id="f-cout">
+          <option value="">?</option><option>Faible</option>
+          <option>Moyen</option><option>Élevé</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="section-title">Notes libres</div>
+    <div class="field">
+      <textarea id="f-notes" placeholder="Observations, contraintes, points d'attention…"></textarea>
+    </div>
+
+    <!-- Actions -->
+    <button class="btn-primary" onclick="saveFiche()" id="save-btn">
+      ☁️ Enregistrer & envoyer dans Sheets
+    </button>
+    <button class="btn-secondary" onclick="saveFicheLocal()">
+      💾 Sauvegarder en local uniquement
+    </button>
+    <div style="height:30px"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const API_KEY    = 'AIzaSyC__gU4Oi_O1l1NCJ9qcy6guFUsP-9PWxU';
+const SHEET_ID   = '1x1pn7Fw8pdmQFQkSaB8wzuY01HXCZqfCVeCBJXx2T94';
+const SHEET_NAME = 'Relevés';
+const DRIVE_FOLDER = 'IRVE_Photos_Terrain';
+
+// ── DONNÉES SITES (50 sites Séché) ──────────────────────────────────────────
+const STATUT_COLORS = {
+  'AUDIT REALISE':'#0E9F6E','A PLANIFIER':'#FF5A1F',
+  'INCOMPLET':'#E02424','DEVIS EN COURS':'#1A56DB',
+  'DEVIS ACCEPTE':'#7E3AF2','INSTALLE':'#0E9F6E',
+  'EN COURS D INSTALLATION':'#C27803'
+};
+
+const CHECKLIST = [
+  'Puissance souscrite confirmée (relevé compteur ou facture)',
+  'Distance TGBT → parking mesurée',
+  'TGBT identifié : accessibilité + place départ + régime neutre',
+  'Nature du sol identifiée sur tout le cheminement câble',
+  'Réseaux sensibles repérés (GAZ/eau/télécom) → DT/DICT à prévoir',
+  'Couverture 4G/5G testée sur le parking',
+  'Emplacements bornes identifiés (accessibilité, espace massif)',
+  'Accord bailleur vérifié (si site en location)',
+  'Contraintes ICPE ou sécurité notées',
+  'Photos prises : TGBT, parking, cheminement câble, compteur',
+  'Plan site récupéré ou demandé',
+  'Mode de financement confirmé (CAPEX/OPEX/Leasing)',
+  'Point de raccordement électrique identifié',
+  'Puissance disponible confirmée auprès du responsable site',
+  'Connexion 4G/Ethernet/Wifi disponible pour supervision',
+  'Accès site : horaires, badge, sécurité notés',
+  'Contact maintenance interne identifié',
+];
+
+// ── ÉTAT LOCAL ───────────────────────────────────────────────────────────────
+let SITES = [];
+let currentSite = null;
+let currentChecks = {};
+let currentPhotos = []; // [{dataUrl, name, uploaded:false}]
+let filterActive = 'tous';
+let pendingSync = []; // relevés à synchroniser
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+window.addEventListener('load', function(){
+  loadLocalData();
+  loadSitesFromERP();
+  renderList();
+  initSheetHeaders();
+  document.getElementById('f-date-visite').value = today();
+});
+
+function today(){
+  return new Date().toISOString().slice(0,10);
+}
+
+function toast(msg, dur){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._t);
+  t._t = setTimeout(function(){t.style.display='none';}, dur||2500);
+}
+
+// ── SITES ────────────────────────────────────────────────────────────────────
+function loadSitesFromERP(){
+  // Sites Séché pré-chargés (importés depuis le CSV V17062611H58)
+  var saved = localStorage.getItem('irve_sites');
+  if(saved){try{SITES=JSON.parse(saved);}catch(e){}}
+  if(!SITES.length) SITES = getDefaultSites();
+  renderList();
+}
+
+function getDefaultSites(){
+  // Liste simplifiée des 50 sites — sera enrichie via import depuis l'ERP
+  return [
+    {id:1,ref:'Site 1',prio:'OUI',filiale:'SECHE TRANSPORT',secteur:'CHANGE',adresse:'Les Hêtres, Changé 53810',dept:53,pdc:6,contact:'PATRICE EON',tel:'0666369646',email:'p.eon@groupe-seche.com',statut:'AUDIT REALISE',doc_fact:'OK',doc_plan:'OK',doc_qst:'PAS NECESSAIRE',devis_drop:22800,comment:'Box mobile 6 points — TN'},
+    {id:2,ref:'Site 2',prio:'OUI',filiale:'SEI',secteur:'GRANGE LES HETRES',adresse:'Les Hêtres, Changé 53811',dept:53,pdc:4,contact:'PATRICE EON',tel:'0666369646',email:'p.eon@groupe-seche.com',statut:'AUDIT REALISE',doc_fact:'OK',doc_plan:'OK',doc_qst:'PAS NECESSAIRE',devis_drop:12900,comment:'Site secouru — TN'},
+    {id:3,ref:'Site 3',prio:'NON',filiale:'SEI',secteur:"L'OISONNIERE",adresse:'Les Hêtres, Changé 53812',dept:53,pdc:6,contact:'PATRICE EON',tel:'0666369646',email:'p.eon@groupe-seche.com',statut:'DEVIS EN COURS',doc_fact:'OK',doc_plan:'OK',doc_qst:'PAS NECESSAIRE',devis_drop:27000,comment:''},
+    {id:4,ref:'Site 4',prio:'OUI',filiale:'SEI',secteur:'MAINTENANCE INDUSTRIELLE',adresse:'Les Hêtres, Changé 53813',dept:53,pdc:4,contact:'PATRICE EON',tel:'0666369646',email:'p.eon@groupe-seche.com',statut:'AUDIT REALISE',doc_fact:'OK',doc_plan:'OK',doc_qst:'PAS NECESSAIRE',devis_drop:12900,comment:''},
+    {id:5,ref:'Site 5',prio:'NON',filiale:'SEI',secteur:'BRM',adresse:'Les Hêtres, Changé 53814',dept:53,pdc:2,contact:'PATRICE EON',tel:'0666369646',email:'p.eon@groupe-seche.com',statut:'AUDIT REALISE',doc_fact:'OK',doc_plan:'OK',doc_qst:'PAS NECESSAIRE',devis_drop:8500,comment:''},
+    {id:9,ref:'Site 9',prio:'OUI',filiale:'SEO',secteur:'NIVILLAC',adresse:'ZA des Métairies 56130 NIVILLAC',dept:56,pdc:4,contact:'Philippe CADRO',tel:'0616270506',email:'p.cadro@groupe-seche.com',statut:'A PLANIFIER',doc_fact:'OK',doc_plan:'CF PHOTO',doc_qst:'RECU',devis_drop:0,comment:'Puissance estimée 20 kVA — insuffisant pour 3 bornes 22kW'},
+    {id:10,ref:'Site 10',prio:'OUI',filiale:'SEO',secteur:'LA VRAIE CROIX',adresse:'Croix Irtelle 56250 LA VRAIE CROIX',dept:56,pdc:4,contact:'Julien ANGEBAULT',tel:'0785014663',email:'j.angebault@groupe-seche.com',statut:'A PLANIFIER',doc_fact:'OK',doc_plan:'CF PHOTO',doc_qst:'RECU',devis_drop:0,comment:'Distance TGBT → parking 150m'},
+    {id:11,ref:'Site 11',prio:'OUI',filiale:'TREDI',secteur:'ST VULBAS',adresse:'Rue Charles de Gaulle 01150 ST VULBAS',dept:1,pdc:2,contact:'JEAN-CLAUDE BATTAGLIA',tel:'0767025133',email:'jc.battaglia@tredi.groupe-seche.com',statut:'INCOMPLET',doc_fact:'',doc_plan:'',doc_qst:'EN ATTENTE DE RETOUR',devis_drop:0,comment:''},
+    {id:13,ref:'Site 13',prio:'OUI',filiale:'SECHE ASSAINISSEMENT',secteur:'ROISSY',adresse:'1 rue Denis Papin 77680 Roissy en Brie',dept:77,pdc:3,contact:'ARNAUD VAN DER LINDEN',tel:'0788953637',email:'a.vanderlinden@groupe-seche.com',statut:'A PLANIFIER',doc_fact:'RECU',doc_plan:'RECU',doc_qst:'RECU',devis_drop:0,comment:''},
+    {id:19,ref:'Site 19',prio:'OUI',filiale:'SES',secteur:'GENAS',adresse:'6 Rue Joseph Nicéphore Niepce 69740 Genas',dept:69,pdc:10,contact:'PHILIPPE DEROUET',tel:'0622663781',email:'p.derouet@groupe-seche.com',statut:'A PLANIFIER',doc_fact:'RAS',doc_plan:'RAS',doc_qst:'RECU',devis_drop:0,comment:'Site le plus important : 10 PDC'},
+  ];
+}
+
+// ── LISTE ────────────────────────────────────────────────────────────────────
+function setFilter(f, btn){
+  filterActive = f;
+  document.querySelectorAll('.filter-tab').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  renderList();
+}
+
+function renderList(){
+  var q = (document.getElementById('search').value||'').toLowerCase();
+  var sites = SITES.filter(function(s){
+    if(q && !(s.ref+' '+s.secteur+' '+s.filiale+' '+(s.adresse||'')).toLowerCase().includes(q)) return false;
+    if(filterActive==='prio') return s.prio==='OUI';
+    if(filterActive==='planifier') return s.statut==='A PLANIFIER';
+    if(filterActive==='visite'){
+      var rel = getReleve(s.id);
+      return rel && rel.date_visite;
+    }
+    return true;
+  });
+
+  var html = '';
+  if(!sites.length){
+    html = '<div style="text-align:center;padding:40px;color:var(--mut)">Aucun site trouvé</div>';
+  } else {
+    sites.forEach(function(s){
+      var col = STATUT_COLORS[s.statut]||'#9CA3AF';
+      var rel = getReleve(s.id);
+      var done = rel ? Object.values(rel.checks||{}).filter(Boolean).length : 0;
+      var checkInfo = done>0 ? done+'/'+CHECKLIST.length+' ✓' : '';
+      var photoInfo = rel && rel.photos && rel.photos.length ? ' · '+rel.photos.length+' 📷' : '';
+      html += '<div class="site-card" onclick="openSite('+s.id+')">'
+        +'<div class="site-dot" style="background:'+col+'"></div>'
+        +'<div class="site-info">'
+        +'<div class="site-ref">'+s.ref+(s.prio==='OUI'?' ⭐':'')+'</div>'
+        +'<div class="site-name">'+s.secteur+'</div>'
+        +'<div class="site-fil">'+s.filiale+'</div>'
+        +(checkInfo||photoInfo?'<div class="site-check">'+checkInfo+photoInfo+'</div>':'')
+        +'</div>'
+        +'<div class="site-pdc">'+s.pdc+'<div style="font-size:10px;color:var(--mut);font-weight:600">PDC</div></div>'
+        +'</div>';
+    });
+  }
+  document.getElementById('site-list').innerHTML = html;
+}
+
+// ── FICHE SITE ───────────────────────────────────────────────────────────────
+function openSite(id){
+  currentSite = SITES.find(function(s){return s.id===id;});
+  if(!currentSite) return;
+  var rel = getReleve(id) || {};
+  currentChecks = rel.checks || {};
+  currentPhotos = rel.photos || [];
+
+  // En-tête
+  document.getElementById('f-name').textContent = currentSite.secteur;
+  document.getElementById('f-sub').textContent = currentSite.ref+' · '+currentSite.filiale;
+  var statEl = document.getElementById('f-statut');
+  statEl.textContent = currentSite.statut;
+  statEl.style.background = (STATUT_COLORS[currentSite.statut]||'#9CA3AF')+'33';
+  statEl.style.color = STATUT_COLORS[currentSite.statut]||'#9CA3AF';
+
+  // Infos
+  function dbadge(v){
+    if(['OK','RECU'].includes(v)) return '<span style="color:#065F46;font-weight:700">✅ '+v+'</span>';
+    if(v&&v!=='') return '<span style="color:#92400E;font-weight:700">⚠ '+v+'</span>';
+    return '<span style="color:#9CA3AF">—</span>';
+  }
+  document.getElementById('f-infos').innerHTML =
+    '<div class="info-item full"><div class="lbl">Adresse</div><div class="val" style="font-size:12px">'+(currentSite.adresse||'—')+'</div></div>'
+    +'<div class="info-item"><div class="lbl">Contact</div><div class="val" style="font-size:12px">'+(currentSite.contact||'—')+'</div></div>'
+    +'<div class="info-item"><div class="lbl">Tél.</div><div class="val"><a href="tel:'+(currentSite.tel||'')+'" style="color:var(--blue2)">'+(currentSite.tel||'—')+'</a></div></div>'
+    +'<div class="info-item"><div class="lbl">Facture élec</div><div class="val">'+dbadge(currentSite.doc_fact)+'</div></div>'
+    +'<div class="info-item"><div class="lbl">Plan circu.</div><div class="val">'+dbadge(currentSite.doc_plan)+'</div></div>'
+    +(currentSite.comment?'<div class="info-item full"><div class="lbl">Note technique</div><div class="val" style="color:var(--org);font-size:12px">⚠ '+currentSite.comment+'</div></div>':'');
+
+  // Remplir les champs sauvegardés
+  document.getElementById('f-date-visite').value = rel.date_visite||today();
+  document.getElementById('f-interlo').value     = rel.interlocuteur||currentSite.contact||'';
+  document.getElementById('f-pw-sous').value     = rel.puissance_souscrite||'';
+  document.getElementById('f-pw-dispo').value    = rel.puissance_dispo||'';
+  document.getElementById('f-regime').value      = rel.regime_elec||'';
+  document.getElementById('f-dist').value        = rel.distance_tgbt||'';
+  document.getElementById('f-sol').value         = rel.type_sol||'';
+  document.getElementById('f-pw-cible').value    = rel.puissance_cible||'';
+  document.getElementById('f-alim').value        = rel.type_alim||'';
+  document.getElementById('f-notes').value       = rel.notes_terrain||'';
+  document.getElementById('f-faisable').value    = rel.faisable||'';
+  document.getElementById('f-contraintes').value = rel.contraintes_niveau||'';
+  document.getElementById('f-cout').value        = rel.impact_cout||'';
+
+  renderChecklist();
+  renderPhotos();
+
+  // Afficher écran fiche
+  document.getElementById('screen-list').classList.remove('active');
+  document.getElementById('screen-fiche').classList.add('active');
+  document.getElementById('fiche-scroll').scrollTop = 0;
+}
+
+function goBack(){
+  document.getElementById('screen-fiche').classList.remove('active');
+  document.getElementById('screen-list').classList.add('active');
+  renderList();
+}
+
+// ── CHECKLIST ────────────────────────────────────────────────────────────────
+function renderChecklist(){
+  var done = Object.values(currentChecks).filter(Boolean).length;
+  var pct  = Math.round(done/CHECKLIST.length*100);
+  document.getElementById('check-progress').style.width = pct+'%';
+
+  var html = '';
+  CHECKLIST.forEach(function(item, i){
+    var checked = currentChecks[i]||false;
+    html += '<div class="check-item'+(checked?' done-item':'')+'" onclick="toggleCheck('+i+')">'
+      +'<div class="check-box'+(checked?' done':'')+'">'+( checked?'✓':'')+'</div>'
+      +'<div class="check-label">'+item+'</div>'
+      +'</div>';
+  });
+  document.getElementById('checklist-wrap').innerHTML = html;
+}
+
+function toggleCheck(i){
+  currentChecks[i] = !currentChecks[i];
+  renderChecklist();
+  autoSaveLocal();
+}
+
+// ── PHOTOS ───────────────────────────────────────────────────────────────────
+function addPhotos(files){
+  Array.from(files).forEach(function(f){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      // Compresser avant stockage
+      compressImage(e.target.result, 1200, 0.78, function(dataUrl){
+        currentPhotos.push({dataUrl:dataUrl, name:f.name, ts:Date.now(), uploaded:false});
+        renderPhotos();
+        autoSaveLocal();
+        toast('📷 Photo ajoutée');
+      });
+    };
+    reader.readAsDataURL(f);
+  });
+  document.getElementById('photo-input').value='';
+}
+
+function compressImage(dataUrl, maxDim, quality, cb){
+  var img = new Image();
+  img.onload = function(){
+    var w=img.width, h=img.height;
+    if(w>maxDim||h>maxDim){
+      if(w>h){h=Math.round(h*maxDim/w);w=maxDim;}
+      else{w=Math.round(w*maxDim/h);h=maxDim;}
+    }
+    var c=document.createElement('canvas');
+    c.width=w; c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    cb(c.toDataURL('image/jpeg',quality));
+  };
+  img.src=dataUrl;
+}
+
+function renderPhotos(){
+  var html = '';
+  currentPhotos.forEach(function(p, i){
+    html += '<div class="photo-wrap">'
+      +'<img class="photo-thumb" src="'+p.dataUrl+'" onclick="viewPhoto('+i+')">'
+      +'<button class="photo-del" onclick="deletePhoto('+i+')">✕</button>'
+      +'</div>';
+  });
+  html += '<div class="photo-add" onclick="document.getElementById(\'photo-input\').click()">'
+    +'<div class="photo-add-icon">📷</div>'
+    +'<div class="photo-add-lbl">Ajouter</div>'
+    +'</div>';
+  document.getElementById('photo-grid').innerHTML = html;
+}
+
+function deletePhoto(i){
+  if(!confirm('Supprimer cette photo ?')) return;
+  currentPhotos.splice(i,1);
+  renderPhotos();
+  autoSaveLocal();
+}
+
+function viewPhoto(i){
+  var p = currentPhotos[i];
+  var w = window.open('','_blank');
+  w.document.write('<html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh">'
+    +'<img src="'+p.dataUrl+'" style="max-width:100%;max-height:100vh;object-fit:contain"></body></html>');
+  w.document.close();
+}
+
+// ── SAUVEGARDE LOCALE ────────────────────────────────────────────────────────
+function getReleve(siteId){
+  var key = 'irve_releve_'+siteId;
+  try{ return JSON.parse(localStorage.getItem(key)); }catch(e){return null;}
+}
+
+function buildReleve(){
+  return {
+    site_id:     currentSite.id,
+    ref:         currentSite.ref,
+    secteur:     currentSite.secteur,
+    filiale:     currentSite.filiale,
+    adresse:     currentSite.adresse||'',
+    pdc:         currentSite.pdc||0,
+    date_visite:       document.getElementById('f-date-visite').value,
+    interlocuteur:     document.getElementById('f-interlo').value,
+    puissance_souscrite: document.getElementById('f-pw-sous').value,
+    puissance_dispo:    document.getElementById('f-pw-dispo').value,
+    regime_elec:        document.getElementById('f-regime').value,
+    distance_tgbt:      document.getElementById('f-dist').value,
+    type_sol:           document.getElementById('f-sol').value,
+    puissance_cible:    document.getElementById('f-pw-cible').value,
+    type_alim:          document.getElementById('f-alim').value,
+    notes_terrain:      document.getElementById('f-notes').value,
+    faisable:           document.getElementById('f-faisable').value,
+    contraintes_niveau: document.getElementById('f-contraintes').value,
+    impact_cout:        document.getElementById('f-cout').value,
+    checks:  currentChecks,
+    photos:  currentPhotos,
+    synced:  false,
+    updated: new Date().toISOString(),
+  };
+}
+
+function autoSaveLocal(){
+  if(!currentSite) return;
+  var rel = buildReleve();
+  localStorage.setItem('irve_releve_'+currentSite.id, JSON.stringify(rel));
+}
+
+function saveFicheLocal(){
+  autoSaveLocal();
+  toast('💾 Sauvegardé localement');
+}
+
+// ── SYNC GOOGLE SHEETS ───────────────────────────────────────────────────────
+async function saveFiche(){
+  var btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Envoi en cours…';
+  autoSaveLocal();
+  var rel = buildReleve();
+  try{
+    await ensureSheetHeaders();
+    await appendToSheet(rel);
+    // Marquer comme synchronisé
+    rel.synced = true;
+    rel.synced_at = new Date().toISOString();
+    localStorage.setItem('irve_releve_'+currentSite.id, JSON.stringify(rel));
+    setSyncStatus('ok');
+    toast('✅ Relevé envoyé dans Google Sheets !', 3000);
+  }catch(err){
+    console.error(err);
+    toast('⚠ Erreur envoi : '+err.message+' — Sauvegardé en local', 4000);
+    // Ajouter à la file d'attente
+    var pending = JSON.parse(localStorage.getItem('irve_pending')||'[]');
+    pending.push(currentSite.id);
+    localStorage.setItem('irve_pending', JSON.stringify([...new Set(pending)]));
+  }
+  btn.disabled = false;
+  btn.textContent = '☁️ Enregistrer & envoyer dans Sheets';
+}
+
+async function appendToSheet(rel){
+  var done = Object.values(rel.checks||{}).filter(Boolean).length;
+  var checks_detail = CHECKLIST.map(function(item,i){return rel.checks[i]?'✓':'☐';}).join(' | ');
+  var row = [
+    rel.ref, rel.secteur, rel.filiale, rel.adresse, rel.pdc,
+    rel.date_visite, rel.interlocuteur,
+    rel.puissance_souscrite, rel.puissance_dispo, rel.regime_elec,
+    rel.distance_tgbt, rel.type_sol, rel.puissance_cible, rel.type_alim,
+    done+'/'+CHECKLIST.length,
+    rel.faisable, rel.contraintes_niveau, rel.impact_cout,
+    rel.notes_terrain,
+    rel.photos ? rel.photos.length : 0,
+    new Date().toLocaleString('fr-FR'),
+    checks_detail
+  ];
+
+  var url = 'https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID
+    +'/values/'+encodeURIComponent(SHEET_NAME)+'!A1:append?valueInputOption=USER_ENTERED&key='+API_KEY;
+
+  var resp = await fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({values:[row]})
+  });
+  if(!resp.ok){
+    var err = await resp.json();
+    throw new Error(err.error ? err.error.message : resp.status);
+  }
+  return resp.json();
+}
+
+async function ensureSheetHeaders(){
+  // Vérifier si la feuille a déjà des en-têtes
+  var url = 'https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID
+    +'/values/'+encodeURIComponent(SHEET_NAME)+'!A1?key='+API_KEY;
+  var resp = await fetch(url);
+  if(!resp.ok) return;
+  var data = await resp.json();
+  if(data.values && data.values[0] && data.values[0][0]) return; // déjà des données
+  await initSheetHeaders();
+}
+
+async function initSheetHeaders(){
+  var headers = [
+    'Ref','Site','Filiale','Adresse','PDC',
+    'Date visite','Interlocuteur',
+    'Puissance souscrite (kVA)','Puissance dispo (kVA)','Régime élec',
+    'Distance TGBT (m)','Type sol','Puissance cible','Alimentation',
+    'Checklist (OK/Total)',
+    'Faisable','Contraintes','Impact coût',
+    'Notes terrain',
+    'Nb photos',
+    'Date enregistrement',
+    'Détail checklist'
+  ];
+  var url = 'https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID
+    +'/values/'+encodeURIComponent(SHEET_NAME)+'!A1?valueInputOption=USER_ENTERED&key='+API_KEY;
+  try{
+    await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({values:[headers]})});
+  }catch(e){}
+}
+
+// ── SYNC TOUTES LES EN ATTENTE ───────────────────────────────────────────────
+async function syncAll(){
+  setSyncStatus('sync');
+  var pending = JSON.parse(localStorage.getItem('irve_pending')||'[]');
+  var synced = 0;
+  for(var i=0;i<pending.length;i++){
+    var rel = getReleve(pending[i]);
+    if(!rel||rel.synced) continue;
+    try{
+      await appendToSheet(rel);
+      rel.synced=true; rel.synced_at=new Date().toISOString();
+      localStorage.setItem('irve_releve_'+pending[i], JSON.stringify(rel));
+      synced++;
+    }catch(e){console.warn('Sync failed for site',pending[i],e);}
+  }
+  // Nettoyer la liste des pending
+  var stillPending = pending.filter(function(id){
+    var r=getReleve(id); return r&&!r.synced;
+  });
+  localStorage.setItem('irve_pending', JSON.stringify(stillPending));
+  setSyncStatus(stillPending.length===0?'ok':'');
+  toast(synced>0?('✅ '+synced+' relevé(s) synchronisé(s)'):'Rien à synchroniser');
+}
+
+function setSyncStatus(status){
+  var dot = document.getElementById('sync-dot');
+  dot.className = 'sync-dot'+(status?' '+status:'');
+}
+
+function loadLocalData(){
+  // Compter les relevés en attente
+  var pending = JSON.parse(localStorage.getItem('irve_pending')||'[]');
+  setSyncStatus(pending.length>0?'':'ok');
+}
+</script>
+</body>
+</html>
