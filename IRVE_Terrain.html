@@ -358,10 +358,11 @@ function toast(msg, dur){
 
 // ── SITES ────────────────────────────────────────────────────────────────────
 function loadSitesFromERP(){
-  // Sites Séché pré-chargés (importés depuis le CSV V17062611H58)
-  var saved = localStorage.getItem('irve_sites');
-  if(saved){try{SITES=JSON.parse(saved);}catch(e){}}
-  if(!SITES.length) SITES = getDefaultSites();
+  // Toujours charger les sites depuis le code (pas depuis localStorage)
+  // pour garantir d'avoir les 50 sites à jour
+  SITES = getDefaultSites();
+  // Fusionner les données terrain sauvegardées (notes, checks, etc.)
+  // mais garder la liste de sites fraîche
   renderList();
 }
 
