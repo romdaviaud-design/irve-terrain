@@ -280,11 +280,11 @@ html,body{height:100%;background:var(--bg);font-family:-apple-system,system-ui,s
     </div>
 
     <!-- Actions -->
-    <button class="btn-primary" onclick="saveFiche()" id="save-btn">
-      ☁️ Enregistrer & envoyer dans Sheets
+    <button class="btn-primary" onclick="exportPDF()" id="pdf-btn">
+      📄 Exporter la fiche PDF
     </button>
     <button class="btn-secondary" onclick="saveFicheLocal()">
-      💾 Sauvegarder en local uniquement
+      💾 Sauvegarder en local
     </button>
     <div style="height:30px"></div>
   </div>
@@ -733,6 +733,184 @@ function loadLocalData(){
   var pending = JSON.parse(localStorage.getItem('irve_pending')||'[]');
   setSyncStatus(pending.length>0?'':'ok');
 }
+
+// ── EXPORT PDF ───────────────────────────────────────────────────────────────
+function exportPDF(){
+  if(!currentSite){toast('Aucun site sélectionné');return;}
+  var s = currentSite;
+  var tc = currentChecks;
+  var done = Object.values(tc).filter(Boolean).length;
+  var dateStr = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  var STATUT_COL = {'AUDIT REALISE':'#0E9F6E','A PLANIFIER':'#FF5A1F','INCOMPLET':'#E02424','DEVIS EN COURS':'#1A56DB'};
+  var sc = STATUT_COL[s.statut]||'#6B7280';
+
+  function sv(v){return(v!==undefined&&v!==null&&String(v).trim()!=='')?String(v):'—';}
+  function row(lbl,val){
+    return '<div style="margin-bottom:8px">'
+      +'<div style="font-size:9px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">'+lbl+'</div>'
+      +'<div style="font-size:11px;font-weight:500;padding:3px 0;border-bottom:1px solid #F3F4F6;min-height:18px">'+(val||'<span style="color:#D1D5DB">—</span>')+'</div>'
+      +'</div>';
+  }
+  function g2(items){
+    return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 20px;margin-bottom:8px">'+items+'</div>';
+  }
+  function chk(item,checked){
+    return '<div style="display:flex;align-items:center;gap:7px;padding:3px 0;border-bottom:1px solid #F9FAFB;font-size:10px">'
+      +'<div style="width:12px;height:12px;border:1.5px solid '+(checked?'#0E9F6E':'#D1D5DB')+';border-radius:2px;flex-shrink:0;'
+      +'background:'+(checked?'#0E9F6E':'#fff')+';display:flex;align-items:center;justify-content:center;color:#fff;font-size:8px">'
+      +(checked?'&#10003;':'')+'</div><span>'+item+'</span></div>';
+  }
+  function badge(v,ok,bad){
+    var bg=v===ok?'#ECFDF5':v===bad?'#FEF2F2':v?'#FEF3C7':'#F3F4F6';
+    var co=v===ok?'#065F46':v===bad?'#991B1B':v?'#78350F':'#6B7280';
+    return '<span style="padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;background:'+bg+';color:'+co+'">'+(v||'À évaluer')+'</span>';
+  }
+
+  // Sections fiche de visite
+  var sections = [
+    {icon:'📍',titre:'1. Emplacement des bornes',
+     fields:[{lbl:'Distance estimée au sol (m)',val:document.getElementById('f-dist').value}],
+     checks:[0,1,6,10]},
+    {icon:'🔧',titre:'2. Génie civil & cheminement',
+     fields:[],
+     checks:[3,4,8]},
+    {icon:'⚡',titre:'3. Alimentation électrique',
+     fields:[
+       {lbl:'Puissance souscrite (kVA)',val:document.getElementById('f-pw-sous').value},
+       {lbl:'Puissance disponible (kVA)',val:document.getElementById('f-pw-dispo').value},
+       {lbl:'Régime électrique',val:document.getElementById('f-regime').value},
+     ],
+     checks:[2,12,13]},
+    {icon:'📶',titre:'4. Réseau & supervision',
+     fields:[],checks:[5,14]},
+    {icon:'🔑',titre:'5. Exploitation & maintenance',
+     fields:[],checks:[7,15,16]},
+  ];
+
+  var secHTML = '';
+  sections.forEach(function(sec){
+    secHTML += '<div style="margin-bottom:14px">'
+      +'<div style="font-size:11px;font-weight:700;color:#1E429F;border-bottom:2px solid #EBF5FF;padding-bottom:3px;margin-bottom:7px">'+sec.icon+' '+sec.titre+'</div>';
+    if(sec.fields.length){
+      secHTML += '<div style="display:grid;grid-template-columns:repeat('+Math.min(sec.fields.length,3)+',1fr);gap:4px 16px;margin-bottom:7px">';
+      sec.fields.forEach(function(f){secHTML+=row(f.lbl,f.val);});
+      secHTML += '</div>';
+    }
+    secHTML += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px">';
+    sec.checks.forEach(function(ci){secHTML+=chk(CHECKLIST[ci],tc[ci]||false);});
+    secHTML += '</div></div>';
+  });
+
+  // Infos relevé
+  var releve_info = g2(
+    row('Date de visite', document.getElementById('f-date-visite').value)
+    +row('Interlocuteur', document.getElementById('f-interlo').value)
+    +row('Puissance cible', document.getElementById('f-pw-cible').value)
+    +row('Type alimentation', document.getElementById('f-alim').value)
+    +row('Type de sol', document.getElementById('f-sol').value)
+    +row('Checklist', done+'/'+CHECKLIST.length+' points vérifiés')
+  );
+
+  // HTML complet de la fiche
+  var H = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">'
+    +'<title>Fiche visite '+s.ref+' — '+s.secteur+'</title>'
+    +'<style>'
+    +'*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:24px 28px;max-width:820px;margin:0 auto}'
+    +'@media print{body{padding:14px 18px}button{display:none!important}.no-print{display:none!important}}'
+    +'</style></head><body>'
+
+    // Bouton imprimer
+    +'<button onclick="window.print()" class="no-print" style="position:fixed;top:12px;right:12px;'
+    +'padding:9px 18px;background:#1E429F;color:#fff;border:none;border-radius:8px;'
+    +'font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(30,66,159,.3)">'
+    +'🖨 Imprimer / Enregistrer PDF</button>'
+
+    // EN-TÊTE
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;'
+    +'border-bottom:3px solid #1E429F;padding-bottom:12px;margin-bottom:14px">'
+    +'<div><div style="font-size:20px;font-weight:900;color:#1E429F">⚡ ERP <span style="opacity:.5;font-weight:400;font-size:14px">IRVE</span></div>'
+    +'<div style="font-size:9px;color:#6B7280;margin-top:2px">Cordon Group — 6 rue du Carré des Norgands, 44880 Sautron</div></div>'
+    +'<div style="text-align:right">'
+    +'<div style="font-size:15px;font-weight:800;color:#1E429F">FICHE DE VISITE TERRAIN</div>'
+    +'<div style="font-size:9px;color:#6B7280">Éditée le '+dateStr+'</div>'
+    +'<div style="display:inline-block;margin-top:4px;padding:2px 9px;border-radius:20px;font-size:9px;font-weight:700;background:'+sc+'22;color:'+sc+'">'+sv(s.statut)+'</div>'
+    +'</div></div>'
+
+    // BANDEAU SITE
+    +'<div style="background:#1E429F;color:#fff;border-radius:8px;padding:10px 16px;'
+    +'display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">'
+    +'<div><div style="font-size:8px;opacity:.7;text-transform:uppercase;letter-spacing:.05em">Référence</div>'
+    +'<div style="font-size:14px;font-weight:800;font-family:monospace">'+sv(s.ref)+'</div>'
+    +'<div style="font-size:13px;font-weight:700">'+sv(s.secteur)+'</div></div>'
+    +'<div><div style="font-size:8px;opacity:.7;text-transform:uppercase;letter-spacing:.05em">Filiale</div>'
+    +'<div style="font-size:12px;font-weight:700">'+sv(s.filiale)+'</div></div>'
+    +'<div><div style="font-size:8px;opacity:.7;text-transform:uppercase;letter-spacing:.05em">PDC · Priorité</div>'
+    +'<div style="font-size:12px;font-weight:700">'+sv(s.pdc)+' PDC · '+(s.prio==='OUI'?'⭐ Prioritaire':'Standard')+'</div></div>'
+    +'</div>'
+
+    // CONTACTS & DOCS
+    +g2(
+      row('Adresse',s.adresse)
+      +row('Contact sur site',sv(s.contact)+(s.tel?' · '+s.tel:''))
+      +row('Email',s.email)
+      +row('Coordinateur',s.coord)
+    )
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+    +['Facture élec:doc_fact','Plan circulation:doc_plan','Questionnaire:doc_qst'].map(function(d){
+      var p=d.split(':'); var v=s[p[1]]||'';
+      var ok=['OK','RECU'].indexOf(v)>=0;
+      return '<span style="padding:2px 9px;border-radius:4px;font-size:9px;font-weight:700;'
+        +'background:'+(ok?'#ECFDF5':v?'#FDFDEA':'#F3F4F6')+';color:'+(ok?'#065F46':v?'#92400E':'#9CA3AF')+'">'+p[0]+' : '+(v||'—')+'</span>';
+    }).join(' ')
+    +'</div>'
+    +(s.comment?'<div style="background:#FFF3EE;border-left:3px solid #FF5A1F;border-radius:4px;padding:5px 10px;font-size:10px;color:#9B4700;margin-bottom:10px">⚠ '+s.comment+'</div>':'')
+
+    // RELEVÉ TERRAIN
+    +'<div style="font-size:13px;font-weight:800;color:#1E429F;border-top:3px solid #1E429F;'
+    +'padding-top:8px;margin:14px 0 10px">Relevé terrain</div>'
+    +releve_info
+
+    // 5 SECTIONS
+    +'<div style="font-size:13px;font-weight:800;color:#1E429F;border-top:3px solid #1E429F;'
+    +'padding-top:8px;margin:14px 0 10px">Fiche de visite structurée</div>'
+    +secHTML
+
+    // SYNTHESE
+    +'<div style="font-size:13px;font-weight:800;color:#1E429F;border-top:3px solid #1E429F;'
+    +'padding-top:8px;margin:14px 0 10px">Synthèse</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;background:#F9FAFB;border-radius:8px;padding:10px 14px;margin-bottom:12px">'
+    +'<div style="text-align:center"><div style="font-size:9px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Installation faisable</div>'
+    +badge(document.getElementById('f-faisable').value,'Oui','Non')+'</div>'
+    +'<div style="text-align:center"><div style="font-size:9px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Niveau contraintes</div>'
+    +badge(document.getElementById('f-contraintes').value,'Faibles','Élevées')+'</div>'
+    +'<div style="text-align:center"><div style="font-size:9px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Impact coût</div>'
+    +badge(document.getElementById('f-cout').value,'Faible','Élevé')+'</div>'
+    +'</div>'
+
+    // NOTES
+    +'<div style="font-size:11px;font-weight:700;color:#1E429F;margin-bottom:5px">Notes technicien</div>'
+    +'<div style="border:1.5px solid #E5E7EB;border-radius:6px;padding:9px 12px;min-height:60px;'
+    +'background:#FAFAFA;font-size:11px;white-space:pre-wrap;margin-bottom:14px">'
+    +(document.getElementById('f-notes').value||'<span style="color:#D1D5DB;font-style:italic">Aucune observation</span>')+'</div>'
+
+    // PIED DE PAGE
+    +'<div style="margin-top:20px;padding-top:8px;border-top:1px solid #E5E7EB;'
+    +'display:flex;justify-content:space-between;font-size:9px;color:#9CA3AF">'
+    +'<span>ERP IRVE — Cordon Group — Confidentiel</span>'
+    +'<span>'+sv(s.ref)+' — '+sv(s.secteur)+'</span>'
+    +'<span>Page 1/1</span>'
+    +'</div>'
+    +'</body></html>';
+
+  // Ouvrir dans un nouvel onglet pour impression / partage
+  var blob = new Blob([H], {type:'text/html;charset=utf-8'});
+  var url = URL.createObjectURL(blob);
+  window.open(url,'_blank');
+  setTimeout(function(){URL.revokeObjectURL(url);}, 10000);
+  toast('📄 Fiche prête — Partager → Enregistrer en PDF', 4000);
+}
+
 </script>
 </body>
 </html>
